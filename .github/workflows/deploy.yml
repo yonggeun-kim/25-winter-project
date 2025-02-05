@@ -1,0 +1,31 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Build Docker Image
+        run: docker build -t my-app .
+
+      - name: Push Docker Image to Docker Hub
+        run: |
+          docker tag my-app my-dockerhub-username/my-app:latest
+          docker push my-dockerhub-username/my-app:latest
+
+      - name: Deploy on EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@your-ec2-ip << 'EOF'
+            docker pull my-dockerhub-username/my-app:latest
+            docker stop my-app || true
+            docker rm my-app || true
+            docker run -d -p 8000:8000 --name my-app my-dockerhub-username/my-app:latest
+          EOF
