@@ -1,9 +1,9 @@
-name: Deploy to EC2
+name: Deploy Frontend to EC2
 
 on:
   push:
     branches:
-      - main
+      - main  # main 브랜치에 푸시될 때 실행
 
 jobs:
   deploy:
@@ -14,18 +14,18 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Build Docker Image
-        run: docker build -t my-app .
+        run: docker build -t my-frontend ./frontend
 
       - name: Push Docker Image to Docker Hub
         run: |
-          docker tag my-app my-dockerhub-username/my-app:latest
-          docker push my-dockerhub-username/my-app:latest
+          docker tag my-frontend dydrms0417/my-frontend:latest
+          docker push dydrms0417/my-frontend:latest
 
       - name: Deploy on EC2
         run: |
-          ssh -o StrictHostKeyChecking=no ubuntu@your-ec2-ip << 'EOF'
-            docker pull my-dockerhub-username/my-app:latest
-            docker stop my-app || true
-            docker rm my-app || true
-            docker run -d -p 8000:8000 --name my-app my-dockerhub-username/my-app:latest
+          ssh -o StrictHostKeyChecking=no ubuntu@13.209.43.27 << 'EOF'
+            docker pull dydrms0417/my-frontend:latest
+            docker stop my-frontend || true
+            docker rm my-frontend || true
+            docker run -d -p 3000:3000 --name my-frontend dydrms0417/my-frontend:latest
           EOF
