@@ -14,11 +14,11 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Build Docker Image
-        run: docker build -t my-frontend ./frontend
+        run: docker build -t dydrms0417/my-frontend:latest ./frontend
 
       - name: Push Docker Image to Docker Hub
         run: |
-          docker tag my-frontend dydrms0417/my-frontend:latest
+          docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_PASSWORD }}"
           docker push dydrms0417/my-frontend:latest
 
       - name: Deploy on EC2
@@ -30,6 +30,7 @@ jobs:
           echo "$EC2_SSH_KEY" > ec2_key.pem
           chmod 600 ec2_key.pem
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem $EC2_USER@$EC2_HOST << 'EOF'
+            docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_PASSWORD }}"
             docker pull dydrms0417/my-frontend:latest
             docker stop my-frontend || true
             docker rm my-frontend || true
