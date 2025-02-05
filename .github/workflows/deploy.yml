@@ -22,8 +22,14 @@ jobs:
           docker push dydrms0417/my-frontend:latest
 
       - name: Deploy on EC2
+        env:
+          EC2_HOST: "13.209.43.27"
+          EC2_USER: "ubuntu"
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
-          ssh -o StrictHostKeyChecking=no ubuntu@13.209.43.27 << 'EOF'
+          echo "$EC2_SSH_KEY" > ec2_key.pem
+          chmod 600 ec2_key.pem
+          ssh -o StrictHostKeyChecking=no -i ec2_key.pem $EC2_USER@$EC2_HOST << 'EOF'
             docker pull dydrms0417/my-frontend:latest
             docker stop my-frontend || true
             docker rm my-frontend || true
