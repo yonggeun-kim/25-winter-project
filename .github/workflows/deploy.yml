@@ -1,10 +1,10 @@
-name: Deploy Frontend to EC2
+name: Deploy Frontend & Backend to EC2
 
 on:
   push:
     branches:
-      - main  # main 브랜치에 푸시될 때 실행
-  workflow_dispatch:  # 수동 실행을 위한 트리거 추가
+      - main
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -14,26 +14,49 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Build Docker Image
-        run: docker build -t dydrms0417/my-frontend:latest ./frontend
-
-      - name: Push Docker Image to Docker Hub
+      - name: Build & Push Docker Images
         run: |
-          docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_PASSWORD }}"
+          echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+          docker build -t dydrms0417/my-frontend:latest ./frontend
           docker push dydrms0417/my-frontend:latest
+          docker build -t dydrms0417/my-backend:latest ./backend
+          docker push dydrms0417/my-backend:latest
 
-      - name: Deploy on EC2
+      - name: Deploy on EC2 with Docker Compose
         env:
-          EC2_HOST: "54.180.147.196"
-          EC2_USER: "ubuntu"
+          EC2_HOST: "54.180.147.196"  # EC2 퍼블릭 IP 주소
+          EC2_USER: "ubuntu"  # 기본 사용자
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
           echo "$EC2_SSH_KEY" > ec2_key.pem
           chmod 600 ec2_key.pem
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem $EC2_USER@$EC2_HOST << 'EOF'
-            docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_PASSWORD }}"
+            echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
             docker pull dydrms0417/my-frontend:latest
-            docker stop my-frontend || true
-            docker rm my-frontend || true
-            docker run -d -p 3000:3000 --name my-frontend dydrms0417/my-frontend:latest
+            docker pull dydrms0417/my-backend:latest
+            
+            # 기존 컨테이너 삭제 (docker-compose.yml이 있을 때만 실행)
+            if [ -f "docker-compose.yml" ]; then
+              docker-compose down
+            fi
+            
+            # docker-compose.yml 파일 생성
+            cat <<EOT > docker-compose.yml
+            version: '3'
+            services:
+              frontend:
+                image: dydrms0417/my-frontend:latest
+                ports:
+                  - "80:3000"
+                depends_on:
+                  - backend
+
+              backend:
+                image: dydrms0417/my-backend:latest
+                ports:
+                  - "8000:8000"
+            EOT
+            
+            # Docker Compose 실행
+            docker-compose up -d
           EOF
